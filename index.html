@@ -8,7 +8,8 @@
     :root{
       /* Paleta base (alineada a tus proyectos anteriores) */
       --green-base:#39a900;
-      --green-dark:#1b5000;
+            --green:var(--green-base);
+--green-dark:#1b5000;
       --green-soft:#4fb100;
       --bg:#f2f4f7;
       --card:#ffffff;
@@ -88,6 +89,12 @@
       background:rgba(245,158,11,.14);
       color:#7c2d12;
     }
+    .badge.yellow{
+      border:1px solid rgba(161,98,7,.18);
+      background:rgba(253,224,71,.22);
+      color:#854d0e;
+    }
+
     .badge.danger{
       border:1px solid rgba(185,28,28,.18);
       background:rgba(185,28,28,.10);
@@ -723,7 +730,7 @@
       font-size:13px;
       letter-spacing:.9px;
       text-transform:uppercase;
-      background:var(--green);
+      background:var(--green-base);
       color:#fff;
       border-bottom:none;
       border-radius:12px;
@@ -1139,6 +1146,7 @@
                 <div>Detalle de días programados</div>
                 <div class="inline">
                   <span id="hoursBadge" class="badge">0 / 0 horas</span>
+                  <span id="approxDateBadge" class="badge yellow" style="display:none;"></span>
                   <a id="lnkReabrirCalendario" class="linklike">Editar días</a>
                 </div>
               </div>
@@ -1957,6 +1965,9 @@ function toDDMMYYYY(iso){
   const instDbStatus = $("instDbStatus");
   const instNombreEl = $("instNombre");
   const instCedulaEl = $("instCedula");
+  const instCelularEl = $("instCelular");
+  const instCorreoEl = $("instCorreo");
+  const instCorreoActivoEl = $("instCorreoActivo");
   const instNombreList = $("instNombreList");
   const instDBInput = $("instDBInput");
   const btnLoadInstructores = $("btnLoadInstructores");
@@ -1991,34 +2002,127 @@ function toDDMMYYYY(iso){
     }
   }
 
+  
   async function loadInstructoresArrayBuffer(ab){
     const wb = XLSX.read(ab, { type:"array" });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
+    // raw:false ayuda a evitar notación científica en cédulas largas
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:"", raw:false });
     if(!rows || !rows.length) throw new Error("Base de instructores vacía.");
 
-    // detectar encabezado
-    let startRow = 0;
-    const head = (rows[0]||[]).map(v=>String(v).toUpperCase().trim());
-    if(head.includes("NUMERO IDENTIFICACION") || head.includes("NUMERO_IDENTIFICACION") || head.includes("IDENTIFICACION")){
-      startRow = 1;
+    const normH = (v)=> (v ?? "").toString().trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/[\s]+/g," ")
+      .replace(/[^\w\s]/g,"");
+
+    const cleanExcelText = (v)=>{
+      let s = (v ?? "").toString().trim();
+      if(!s) return "";
+      s = s.replace(/\.0+$/,"");
+      s = s.replace(/\s+/g," ").trim();
+      return s;
+    };
+
+    const findIdx = (hdrNorm, candidates)=>{
+      for(const c of candidates){
+        const target = normH(c);
+        const idx = hdrNorm.indexOf(target);
+        if(idx >= 0) return idx;
+      }
+      for(let i=0;i<hdrNorm.length;i++){
+        const h = hdrNorm[i];
+        for(const c of candidates){
+          const t = normH(c);
+          if(t && h && h.includes(t)) return i;
+        }
+      }
+      return -1;
+    };
+
+    // Buscar encabezado en primeras 10 filas
+    let headerRow = 0;
+    let idx = {
+      id:-1,
+      nombreCompleto:-1,
+      nombre:-1, apellido:-1,
+      pNombre:-1, sNombre:-1, pApellido:-1, sApellido:-1,
+      celular:-1,
+      correo:-1
+    };
+
+    const maxScan = Math.min(10, rows.length);
+    for(let r=0; r<maxScan; r++){
+      const hdr = (rows[r]||[]).map(v=>String(v).trim());
+      const hdrNorm = hdr.map(normH);
+
+      const idIdx = findIdx(hdrNorm, ["numero identificacion","numero_identificacion","identificacion","documento","cedula","cc"]);
+      if(idIdx < 0) continue;
+
+      const ncIdx = findIdx(hdrNorm, ["nombre completo","nombre_completo"]);
+      const nIdx  = findIdx(hdrNorm, ["nombres","nombre"]);
+      const aIdx  = findIdx(hdrNorm, ["apellidos","apellido"]);
+      const pnIdx = findIdx(hdrNorm, ["primer nombre","1 nombre","nombre1"]);
+      const snIdx = findIdx(hdrNorm, ["segundo nombre","2 nombre","nombre2"]);
+      const paIdx = findIdx(hdrNorm, ["primer apellido","1 apellido","apellido1"]);
+      const saIdx = findIdx(hdrNorm, ["segundo apellido","2 apellido","apellido2"]);
+
+      const okName = (ncIdx>=0) || (nIdx>=0 && aIdx>=0) || (pnIdx>=0 && paIdx>=0);
+      if(!okName) continue;
+
+      headerRow = r;
+      idx.id = idIdx;
+      idx.nombreCompleto = ncIdx;
+      idx.nombre = nIdx; idx.apellido = aIdx;
+      idx.pNombre = pnIdx; idx.sNombre = snIdx; idx.pApellido = paIdx; idx.sApellido = saIdx;
+      idx.celular = findIdx(hdrNorm, ["celular","movil","telefono","telefono movil","telefono celular"]);
+      idx.correo  = findIdx(hdrNorm, ["correo","correo electronico","email","e mail"]);
+      break;
+    }
+
+    // Fallback: ID, APELLIDOS, NOMBRES
+    let startRow = headerRow ? (headerRow + 1) : 0;
+    if(idx.id < 0){
+      idx.id = 0; idx.apellido = 1; idx.nombre = 2;
+      startRow = 0;
     }
 
     INST_DB.byId.clear();
     INST_DB.byName.clear();
 
-    for(let i=startRow;i<rows.length;i++){
+    for(let i=startRow; i<rows.length; i++){
       const r = rows[i] || [];
-      const id = String(r[0]||"").trim();
-      const apellido = String(r[1]||"").trim();
-      const nombre = String(r[2]||"").trim();
-      if(!id || (!nombre && !apellido)) continue;
+      const id = cleanExcelText(r[idx.id]);
+      if(!id) continue;
 
-      const full = `${nombre} ${apellido}`.replace(/\s+/g," ").trim();
-      const rec = { id, name: full };
+      let full = "";
+      if(idx.nombreCompleto >= 0){
+        full = cleanExcelText(r[idx.nombreCompleto]);
+      }else if(idx.nombre >= 0 || idx.apellido >= 0){
+        const nombre = cleanExcelText(r[idx.nombre]);
+        const apellido = cleanExcelText(r[idx.apellido]);
+        full = `${nombre} ${apellido}`.replace(/\s+/g," ").trim();
+      }else{
+        const pn = cleanExcelText(r[idx.pNombre]);
+        const sn = cleanExcelText(r[idx.sNombre]);
+        const pa = cleanExcelText(r[idx.pApellido]);
+        const sa = cleanExcelText(r[idx.sApellido]);
+        full = `${pn} ${sn} ${pa} ${sa}`.replace(/\s+/g," ").trim();
+      }
+
+      if(!full) continue;
+
+      const phoneRaw = (idx.celular>=0) ? cleanExcelText(r[idx.celular]) : "";
+      const emailRaw = (idx.correo>=0)  ? cleanExcelText(r[idx.correo])  : "";
+
+      const prev = INST_DB.byId.get(id);
+      const rec = prev || { id, name: full, phone:"", email:"" };
+
+      rec.name = rec.name || full;
+      if(phoneRaw && !rec.phone) rec.phone = phoneRaw;
+      if(emailRaw && !rec.email) rec.email = emailRaw;
 
       INST_DB.byId.set(id, rec);
-      INST_DB.byName.set(normKey(full), rec);
+      INST_DB.byName.set(normKey(rec.name), rec);
     }
 
     INST_DB.loaded = INST_DB.byId.size > 0;
@@ -2030,6 +2134,20 @@ function toDDMMYYYY(iso){
         : "No se encontraron instructores en la base.";
     }
     if(btnLoadInstructores) btnLoadInstructores.style.display = INST_DB.loaded ? "none" : "inline-block";
+  }
+
+  function applyInstructorRecToInputs(rec){
+    if(!rec) return;
+    try{ if(instCedulaEl) instCedulaEl.value = rec.id || ""; }catch(e){}
+    try{ if(instNombreEl) instNombreEl.value = rec.name || instNombreEl.value; }catch(e){}
+    try{ if(instCelularEl && rec.phone) instCelularEl.value = rec.phone; }catch(e){}
+    try{ if(instCorreoEl && rec.email) instCorreoEl.value = rec.email; }catch(e){}
+    try{
+      if(instCorreoActivoEl && rec.email){
+        instCorreoActivoEl.checked = /@sena\.edu\.co$/i.test(String(rec.email||"").trim());
+        if(typeof updateInstructorCorreoUI === "function") updateInstructorCorreoUI();
+      }
+    }catch(e){}
   }
 
   async function tryAutoLoadInstructores(){
@@ -2078,21 +2196,18 @@ function toDDMMYYYY(iso){
   function syncFromNombre(){
     if(!INST_DB.loaded || !instNombreEl || !instCedulaEl) return;
     const rec = INST_DB.byName.get(normKey(instNombreEl.value));
-    if(rec){
-      instCedulaEl.value = rec.id;
-    }
+    if(rec) applyInstructorRecToInputs(rec);
   }
 
   function syncFromCedula(){
     if(!INST_DB.loaded || !instNombreEl || !instCedulaEl) return;
     const id = (instCedulaEl.value||"").trim();
     const rec = INST_DB.byId.get(id);
-    if(rec){
-      instNombreEl.value = rec.name;
-    }
+    if(rec) applyInstructorRecToInputs(rec);
   }
 
   if(instNombreEl){
+    instNombreEl.addEventListener("input", syncFromNombre);
     instNombreEl.addEventListener("change", syncFromNombre);
     instNombreEl.addEventListener("blur", syncFromNombre);
   }
@@ -2419,6 +2534,7 @@ $("btnContinuar").addEventListener("click", ()=>{
     daysListWrap: $("daysListWrap"),
     daysTbody: $("daysTbody"),
     hoursBadge: $("hoursBadge"),
+    approxDateBadge: $("approxDateBadge"),
     hoursRulesHint: $("hoursRulesHint"),
     lnkReabrirCalendario: $("lnkReabrirCalendario"),
 
@@ -3676,7 +3792,14 @@ function recalcSelectionAndHours(fromCalendar){
     const progHours = Number(c.program.hours || 0);
     formEls.hoursBadge.textContent = `${totalHours} / ${progHours} horas`;
 
-    let badgeClass = "badge";
+    
+
+    if(formEls.approxDateBadge){
+      formEls.approxDateBadge.style.display = "none";
+      formEls.approxDateBadge.dataset.iso = "";
+      formEls.approxDateBadge.textContent = "";
+    }
+let badgeClass = "badge";
     let rules = [];
     if(!progHours){
       badgeClass = "badge warn";
@@ -3685,7 +3808,19 @@ function recalcSelectionAndHours(fromCalendar){
       if(totalHours > progHours){
         badgeClass = "badge danger";
         rules.push(`Horas programadas (${totalHours}) superan la duración del programa (${progHours}). Debe ajustar.`);
-      }else if(totalHours < progHours){
+              const sugISO = suggestEndDateForTargetHours(c, progHours);
+        if(formEls.approxDateBadge){
+          if(sugISO && formEls.fechaFin.value !== sugISO){
+            formEls.approxDateBadge.textContent = `Fecha fin aprox.: ${fmtDMYYYY(sugISO)}`;
+            formEls.approxDateBadge.style.display = "inline-flex";
+            formEls.approxDateBadge.dataset.iso = sugISO;
+          }else{
+            formEls.approxDateBadge.style.display = "none";
+            formEls.approxDateBadge.dataset.iso = "";
+            formEls.approxDateBadge.textContent = "";
+          }
+        }
+}else if(totalHours < progHours){
         badgeClass = "badge warn";
         rules.push(`Horas programadas (${totalHours}) son menores a la duración del programa (${progHours}). Debe ajustar.`);
       }else{
@@ -5469,6 +5604,36 @@ return doc;
     }
   }
 
+  // Ajuste 2: bloquear/filtrar Hora Fin según Hora Inicio (incluye regla especial 00:00)
+  const _END_TIME_VALUES = Array.from({length:24}, (_,h)=> `${String(h).padStart(2,"0")}:00`);
+  function rebuildHoraFinOptions(startSel, endSel){
+    if(!startSel || !endSel) return;
+    const startVal = (startSel.value||"").trim();
+    const startH = hourIntFromHHMM(startVal); // 0..23 o null
+    const prev = (endSel.value||"").trim();
+
+    let allowed = [];
+    if(startH === null){
+      allowed = _END_TIME_VALUES.slice();
+    }else{
+      for(let h=startH+1; h<=23; h++) allowed.push(`${pad2(h)}:00`);
+      // 00:00 se habilita solo si Hora Inicio >= 12:00 (representa 24:00)
+      if(startH >= 12) allowed.push("00:00");
+    }
+
+    endSel.innerHTML = `<option value="">Seleccione…</option>` + allowed.map(v=> `<option value="${v}">${v}</option>`).join("");
+
+    if(prev && allowed.includes(prev)) endSel.value = prev;
+    else if(allowed.length) endSel.value = allowed[0];
+    else endSel.value = "";
+  }
+
+  function enforceHoraFinRules(){
+    rebuildHoraFinOptions(formEls.horaInicio, formEls.horaFin);
+    if(formEls.horaInicio2 && formEls.horaFin2) rebuildHoraFinOptions(formEls.horaInicio2, formEls.horaFin2);
+  }
+
+
   function hourBlockLabel(h){
     // h: 0..23 => "06:00 - 07:00"
     const h2 = (h + 1) % 24;
@@ -5606,7 +5771,19 @@ return doc;
     return { selected, hoursPerDay: 0, totalHours: total };
   }
 
-  // ---------- Recalcular (cuando cambian fechas/horas o al cerrar calendario)
+  
+
+  function suggestEndDateForTargetHours(c, targetHours){
+    try{ ensureCourseSchedule(c); }catch(e){}
+    const selected = Array.from((c?.days?.byDate || new Map()).keys()).sort();
+    let acc = 0;
+    for(const iso of selected){
+      acc += (c.days.byDate.get(iso)?.size || 0);
+      if(acc >= targetHours) return iso;
+    }
+    return selected.length ? selected[selected.length-1] : null;
+  }
+// ---------- Recalcular (cuando cambian fechas/horas o al cerrar calendario)
   function recalcSelectionAndHours(fromCalendar){
     const c = getActive();
     if(!c) return;
@@ -5732,17 +5909,45 @@ return doc;
     const progHours = Number(c.program.hours || 0);
     formEls.hoursBadge.textContent = `${totalHours} / ${progHours} horas`;
 
-    let rules = [];
+    
+
+    if(formEls.approxDateBadge){
+      formEls.approxDateBadge.style.display = "none";
+      formEls.approxDateBadge.dataset.iso = "";
+      formEls.approxDateBadge.textContent = "";
+    }
+let rules = [];
+    let badgeCls = "badge";
+
     if(!progHours){
-      rules.push(`<span class="badge warn">Defina un programa válido para validar horas.</span>`);
+      badgeCls = "badge warn";
+      rules.push(`<span class="badge warn">Defina un programa válido para validar horas</span>`);
     }else if(totalHours === progHours){
+      badgeCls = "badge ok";
       rules.push(`<span class="badge ok">Horas OK</span>`);
     }else if(totalHours > progHours){
+      badgeCls = "badge danger";
       rules.push(`<span class="badge danger">Excede horas del programa</span>`);
+      const sugISO = suggestEndDateForTargetHours(c, progHours);
+      if(formEls.approxDateBadge){
+        if(sugISO && formEls.fechaFin.value !== sugISO){
+          formEls.approxDateBadge.textContent = `Fecha fin aprox.: ${fmtDMYYYY(sugISO)}`;
+          formEls.approxDateBadge.style.display = "inline-flex";
+          formEls.approxDateBadge.dataset.iso = sugISO;
+        }else{
+          formEls.approxDateBadge.style.display = "none";
+          formEls.approxDateBadge.dataset.iso = "";
+          formEls.approxDateBadge.textContent = "";
+        }
+      }
+
     }else{
+      badgeCls = "badge warn";
       rules.push(`<span class="badge warn">Faltan horas por programar</span>`);
     }
 
+    formEls.hoursBadge.className = badgeCls;
+    if(formEls.hoursRulesHint) formEls.hoursRulesHint.innerHTML = rules.join(" ");
     // lista
     selected.forEach(iso=>{
       const dateObj = parseISODate(iso);
@@ -6359,10 +6564,14 @@ function renderHourPanel(c){
       return;
     }
 
-    const handler = ()=> recalcSelectionAndHours(false);
+    const handler = ()=>{ try{ enforceHoraFinRules(); }catch(e){} recalcSelectionAndHours(false); };
     el.addEventListener("input", handler);
     el.addEventListener("change", handler);
   });
+
+  // Inicializar filtros de Hora Fin
+  setTimeout(()=>{ try{ enforceHoraFinRules(); }catch(e){} }, 0);
+
 
   // ---------- Programa por nombre: UI y selección
   function selectProgramRecord(rec){
@@ -6463,35 +6672,39 @@ function renderHourPanel(c){
   formEls.programName.addEventListener("input", ()=>{
     if(!STATE.catalogLoaded) return;
 
-    const q = (formEls.programName.value || "").trim();
-    const norm = normalizeStr(q);
+    if(window.__programNameDebounce) clearTimeout(window.__programNameDebounce);
+    window.__programNameDebounce = setTimeout(()=>{
+      const q = (formEls.programName.value || "").trim();
+      const norm = normalizeStr(q);
 
-    if(norm.length < 2){
-      hideProgramSuggestions();
-      programNameHint.textContent = "";
-      return;
-    }
+      if(norm.length < 2){
+        hideProgramSuggestions();
+        programNameHint.textContent = "";
+        return;
+      }
 
-    // matches por substring en nombre
-    const matches = (STATE.catalogList || []).filter(r => r.nameNorm.includes(norm));
-    matches.sort((a,b)=>{
-      const aStart = a.nameNorm.startsWith(norm) ? 0 : 1;
-      const bStart = b.nameNorm.startsWith(norm) ? 0 : 1;
-      if(aStart !== bStart) return aStart - bStart;
-      if(a.name.length !== b.name.length) return a.name.length - b.name.length;
-      return a.code.localeCompare(b.code);
-    });
+      const p2 = norm.slice(0,2);
+      const pool = (STATE.catalogSearchIndex && STATE.catalogSearchIndex.get(p2)) ? STATE.catalogSearchIndex.get(p2) : (STATE.catalogList || []);
+      const matches = pool.filter(r => r.nameNorm.includes(norm));
 
-    renderProgramSuggestions(matches);
+      matches.sort((a,b)=>{
+        const aStart = a.nameNorm.startsWith(norm) ? 0 : 1;
+        const bStart = b.nameNorm.startsWith(norm) ? 0 : 1;
+        if(aStart !== bStart) return aStart - bStart;
+        if(a.name.length !== b.name.length) return a.name.length - b.name.length;
+        return a.code.localeCompare(b.code);
+      });
 
-    // hint si el nombre exacto tiene duplicados
-    const exact = STATE.catalogNameMap.get(norm);
-    if(exact && exact.length > 1){
-      programNameHint.textContent = "Hay más de un programa con este nombre. Seleccione el correcto (código y horas).";
-      programNameHint.style.color = "var(--warn)";
-    }else{
-      programNameHint.textContent = "";
-    }
+      renderProgramSuggestions(matches);
+
+      const exact = STATE.catalogNameMap.get(norm);
+      if(exact && exact.length > 1){
+        programNameHint.textContent = "Hay más de un programa con este nombre. Seleccione el correcto (código y horas).";
+        programNameHint.style.color = "var(--warn)";
+      }else{
+        programNameHint.textContent = "";
+      }
+    }, 70);
   });
 
   formEls.programName.addEventListener("keydown", (e)=>{
@@ -6525,24 +6738,67 @@ function renderHourPanel(c){
 
       const sheetName = wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:"", raw:false });
 
       if(!rows || rows.length < 2){
         throw new Error("La hoja no contiene datos suficientes.");
       }
 
-      const header = rows[0].map(v => String(v).trim());
-      const idxCode = header.indexOf("CODIGO_PROGRAMA");
-      const idxName = header.indexOf("NOMBRE_PROGRAMA_FORMACION");
-      const idxHours = header.indexOf("DURACION_PROGRAMA");
+      const normH = (v)=> (v ?? "").toString().trim().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/\s+/g," ")
+        .replace(/[^\w\s]/g,"");
 
-      let idxArea = header.indexOf("AREA_OCUPACION");
-      if(idxArea < 0) idxArea = 5; // Columna F (según catálogo)
+      const cleanCode = (v)=>{
+        let s = (v ?? "").toString().trim();
+        if(!s) return "";
+        s = s.replace(/\.0+$/,"");
+        s = s.replace(/\s+/g," ").trim();
+        return s;
+      };
 
-      const headerNorm = header.map(h => String(h||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""));
-      let idxMedida = headerNorm.indexOf("a la medida");
-      if(idxMedida < 0) idxMedida = headerNorm.indexOf("a_la_medida");
-      if(idxMedida < 0) idxMedida = 6; // Columna G (según catálogo)
+      const findHeaderRow = ()=>{
+        const maxScan = Math.min(10, rows.length);
+        for(let r=0; r<maxScan; r++){
+          const hdrNorm = (rows[r]||[]).map(normH);
+          const hasCode = hdrNorm.some(h=> h === "codigo_programa" || (h && h.includes("codigo_programa")));
+          const hasName = hdrNorm.some(h=> h === "nombre_programa_formacion" || (h && h.includes("nombre_programa")));
+          const hasDur  = hdrNorm.some(h=> h === "duracion_programa" || (h && h.includes("duracion_programa")));
+          if(hasCode && hasName && hasDur) return r;
+        }
+        return 0;
+      };
+
+      const headerRow = findHeaderRow();
+      const header = (rows[headerRow]||[]).map(v => String(v).trim());
+      const headerNorm = header.map(normH);
+
+      const findIdx = (cands)=>{
+        for(const c of cands){
+          const t = normH(c);
+          const i = headerNorm.indexOf(t);
+          if(i>=0) return i;
+        }
+        for(let i=0;i<headerNorm.length;i++){
+          const h = headerNorm[i];
+          for(const c of cands){
+            const t = normH(c);
+            if(t && h && h.includes(t)) return i;
+          }
+        }
+        return -1;
+      };
+
+      const idxCode  = findIdx(["CODIGO_PROGRAMA","CODIGO PROGRAMA"]);
+      const idxName  = findIdx(["NOMBRE_PROGRAMA_FORMACION","NOMBRE PROGRAMA FORMACION","NOMBRE_PROGRAMA"]);
+      const idxHours = findIdx(["DURACION_PROGRAMA","DURACION PROGRAMA","DURACION HORAS","DURACION_PROGRAMA_HORAS"]);
+
+      let idxArea = findIdx(["AREA_OCUPACION","AREA OCUPACION","AREA"]);
+      if(idxArea < 0) idxArea = 5;
+
+      let idxMedida = findIdx(["A LA MEDIDA","A_LA_MEDIDA","A LA MEDIDA?"]);
+      if(idxMedida < 0) idxMedida = 6;
+
       if(idxCode < 0 || idxName < 0 || idxHours < 0){
         throw new Error("No se encontraron las columnas esperadas: CODIGO_PROGRAMA, NOMBRE_PROGRAMA_FORMACION, DURACION_PROGRAMA.");
       }
@@ -6551,15 +6807,16 @@ function renderHourPanel(c){
       const list = [];
       const nameMap = new Map();
       const nameDisp = new Map();
+      const searchIndex = new Map(); // prefix2 -> array rec
 
-      for(let r=1; r<rows.length; r++){
-        const row = rows[r];
-        const code = String(row[idxCode] ?? "").trim();
+      for(let r=headerRow+1; r<rows.length; r++){
+        const row = rows[r] || [];
+        const code = cleanCode(row[idxCode]);
         const name = String(row[idxName] ?? "").trim();
-        const hours = Number(row[idxHours] ?? 0);
+        const hours = Number(String(row[idxHours] ?? "0").toString().replace(/,/g,"."));
         const area = String(row[idxArea] ?? "").trim();
         const aMedida = String(row[idxMedida] ?? "").trim().toUpperCase();
-        if(!code || !name || !hours) continue;
+        if(!code || !name || !Number.isFinite(hours) || hours <= 0) continue;
 
         map.set(code, { name, hours, area, aMedida });
 
@@ -6567,39 +6824,45 @@ function renderHourPanel(c){
         const rec = { code, name, hours, area, aMedida, nameNorm };
         list.push(rec);
 
-        if(!nameMap.has(nameNorm)) nameMap.set(nameNorm, []);
-        nameMap.get(nameNorm).push({ code, name, hours, area, aMedida });
+        if(nameNorm){
+          if(!nameMap.has(nameNorm)) nameMap.set(nameNorm, []);
+          nameMap.get(nameNorm).push(rec);
+          if(!nameDisp.has(nameNorm)) nameDisp.set(nameNorm, name);
 
-        if(!nameDisp.has(nameNorm)) nameDisp.set(nameNorm, name);
-      }
-
-      if(map.size < 10){
-        throw new Error("El catálogo parece incompleto. Verifique que sea CATALOGO_COMPLEMENTARIA.xlsx.");
+          const prefixes = new Set();
+          if(nameNorm.length >= 2) prefixes.add(nameNorm.slice(0,2));
+          for(const t of nameNorm.split(/\s+/g)){
+            if(t.length >= 2) prefixes.add(t.slice(0,2));
+          }
+          for(const p of prefixes){
+            if(!p || p.length < 2) continue;
+            if(!searchIndex.has(p)) searchIndex.set(p, []);
+            searchIndex.get(p).push(rec);
+          }
+        }
       }
 
       STATE.catalogMap = map;
+      STATE.catalogLoaded = true;
       STATE.catalogList = list;
       STATE.catalogNameMap = nameMap;
       STATE.catalogNameDisplayMap = nameDisp;
-      STATE.catalogLoaded = true;
+      STATE.catalogSearchIndex = searchIndex;
 
-      fileStatus.textContent = `Catálogo cargado (${map.size} programas).`;
-      fileStatus.style.color = "var(--ok)";
+      fileStatus.textContent = `Catálogo cargado: ${map.size} programas.`;
+      toast("Catálogo cargado.");
 
       fileOverlay.classList.remove("show");
       instructorOverlay.classList.add("show");
       $("instructorStatus").textContent = "";
 
-      // Reset UI sugerencias
-      hideProgramSuggestions();
-
     }catch(err){
       console.error(err);
       fileStatus.textContent = "Error: " + (err && err.message ? err.message : String(err));
-      fileStatus.style.color = "var(--danger)";
       toast("No se pudo leer el catálogo.");
     }
   }
+
 
 })();
 
