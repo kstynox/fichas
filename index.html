@@ -1267,7 +1267,7 @@
         </div>
 
         <div class="field full">
-          <label>Firma (imagen) <span class="req">*</span></label>
+          <label>Firma (imagen) <span class="hint" style="font-weight:800; color:var(--muted);">(Opcional)</span></label>
           <input id="instFirma" type="file" accept="image/*" tabindex="8" />
           <div class="sig-preview" style="margin-top:8px;">
             <img id="firmaPreview" alt="Previsualización firma" style="display:none;" />
@@ -2304,12 +2304,21 @@ $("btnContinuar").addEventListener("click", ()=>{
       }
     }
     if(!coordinador) errs.push("Debe seleccionar coordinador(a) académico(a).");
-    if(!STATE.instructor.firmaDataUrl) errs.push("Debe cargar una firma (imagen).");
+
+    const noFirma = !STATE.instructor.firmaDataUrl;
 
     if(errs.length){
       $("instructorStatus").textContent = errs.join(" ");
       $("instructorStatus").style.color = "var(--danger)";
       return;
+    }
+
+    if(noFirma){
+      $("instructorStatus").textContent = "Aviso: no cargó firma. Las fichas se generarán sin firma.";
+      $("instructorStatus").style.color = "var(--warn)";
+      toast("Aviso: las fichas se generarán sin firma.");
+    }else{
+      $("instructorStatus").textContent = "";
     }
 
     STATE.instructor = { nombre, cedula, celular, correo, coordinador, firmaDataUrl: STATE.instructor.firmaDataUrl };
