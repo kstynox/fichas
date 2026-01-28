@@ -348,7 +348,8 @@
       transition:transform .08s ease, box-shadow .12s ease;
       display:inline-flex; align-items:center; gap:8px;
     }
-    .btn:active{transform:translateY(1px)}
+        .btn.compact{padding:8px 10px; font-size:12px; border-radius:10px}
+.btn:active{transform:translateY(1px)}
     .btn.primary{background:var(--green-base); color:#fff; box-shadow:0 10px 20px rgba(57,169,0,.20)}
     .btn.primary:hover{background:var(--green-soft)}
     .btn.outline{background:#fff; border:1px solid var(--border-strong); color:#0f172a}
@@ -1082,12 +1083,12 @@
               <div class="field full" id="weekdaysCalcWrap">
                 <label>Días a programar <span class="req">*</span></label>
                 <div class="dow-select" role="group" aria-label="Días a programar (LU–SA)">
-                  <div class="dow-col"><div class="dow-name">LU</div><input type="checkbox" id="dowLU" checked></div>
-                  <div class="dow-col"><div class="dow-name">MA</div><input type="checkbox" id="dowMA" checked></div>
-                  <div class="dow-col"><div class="dow-name">MI</div><input type="checkbox" id="dowMI" checked></div>
-                  <div class="dow-col"><div class="dow-name">JU</div><input type="checkbox" id="dowJU" checked></div>
-                  <div class="dow-col"><div class="dow-name">VI</div><input type="checkbox" id="dowVI" checked></div>
-                  <div class="dow-col"><div class="dow-name">SA</div><input type="checkbox" id="dowSA" checked></div>
+                  <label class="dow-col"><span class="dow-name">LU</span><input type="checkbox" id="dowLU" checked></label>
+                  <label class="dow-col"><span class="dow-name">MA</span><input type="checkbox" id="dowMA" checked></label>
+                  <label class="dow-col"><span class="dow-name">MI</span><input type="checkbox" id="dowMI" checked></label>
+                  <label class="dow-col"><span class="dow-name">JU</span><input type="checkbox" id="dowJU" checked></label>
+                  <label class="dow-col"><span class="dow-name">VI</span><input type="checkbox" id="dowVI" checked></label>
+                  <label class="dow-col"><span class="dow-name">SA</span><input type="checkbox" id="dowSA" checked></label>
                 </div>
                 <div class="inline" style="gap:10px; margin-top:8px; align-items:center;">
                   <label class="chk"><input type="checkbox" id="chkHorario2"><span>+ Añadir Horario Complementario</span></label>
@@ -1109,12 +1110,12 @@
                     <div class="field full">
                       <label>Días 2 <span class="req">*</span></label>
                       <div class="dow-select" role="group" aria-label="Días 2 (LU–SA)">
-                        <div class="dow-col"><div class="dow-name">LU</div><input type="checkbox" id="dow2LU"></div>
-                        <div class="dow-col"><div class="dow-name">MA</div><input type="checkbox" id="dow2MA"></div>
-                        <div class="dow-col"><div class="dow-name">MI</div><input type="checkbox" id="dow2MI"></div>
-                        <div class="dow-col"><div class="dow-name">JU</div><input type="checkbox" id="dow2JU"></div>
-                        <div class="dow-col"><div class="dow-name">VI</div><input type="checkbox" id="dow2VI"></div>
-                        <div class="dow-col"><div class="dow-name">SA</div><input type="checkbox" id="dow2SA"></div>
+                        <label class="dow-col"><span class="dow-name">LU</span><input type="checkbox" id="dow2LU"></label>
+                        <label class="dow-col"><span class="dow-name">MA</span><input type="checkbox" id="dow2MA"></label>
+                        <label class="dow-col"><span class="dow-name">MI</span><input type="checkbox" id="dow2MI"></label>
+                        <label class="dow-col"><span class="dow-name">JU</span><input type="checkbox" id="dow2JU"></label>
+                        <label class="dow-col"><span class="dow-name">VI</span><input type="checkbox" id="dow2VI"></label>
+                        <label class="dow-col"><span class="dow-name">SA</span><input type="checkbox" id="dow2SA"></label>
                       </div>
                       <div class="hint">Nota: No pide fechas. Usa el mismo rango de fechas del Horario principal.</div>
                     </div>
@@ -1147,6 +1148,7 @@
                 <div class="inline">
                   <span id="hoursBadge" class="badge">0 / 0 horas</span>
                   <span id="approxDateBadge" class="badge yellow" style="display:none;"></span>
+                  <button class="btn primary compact" id="btnGuardar" type="button">Guardar ficha</button>
                   <a id="lnkReabrirCalendario" class="linklike">Editar días</a>
                 </div>
               </div>
@@ -1172,8 +1174,7 @@
 
           <div class="actions">
             <button class="btn outline" id="btnPrev" type="button">Anterior</button>
-            <button class="btn primary" id="btnGuardar" type="button">Guardar ficha</button>
-            <button class="btn outline" id="btnNext" type="button">Siguiente</button>
+<button class="btn outline" id="btnNext" type="button">Siguiente</button>
           </div>
           <div class="hint" id="saveHint" style="margin-top:8px;"></div>
         </div>
@@ -2733,13 +2734,31 @@ $("btnContinuar").addEventListener("click", ()=>{
     if(!Array.isArray(c.prog.extra.weekdays)) c.prog.extra.weekdays = [];
   }
 
+  // Normaliza valores de día de semana: acepta 1..6, "1".."6" o abreviaturas (LU/MA/MI/JU/VI/SA)
+  function normalizeDowAny(v){
+    const n = Number(v);
+    if([1,2,3,4,5,6].includes(n)) return n;
+
+    const s = String(v ?? "").trim().toUpperCase();
+    if(!s) return null;
+
+    if(s==="LU" || s==="LUN" || s==="LUNES") return 1;
+    if(s==="MA" || s==="MAR" || s==="MARTES") return 2;
+    if(s==="MI" || s==="MIE" || s==="MIÉ" || s==="MIERCOLES" || s==="MIÉRCOLES") return 3;
+    if(s==="JU" || s==="JUE" || s==="JUEVES") return 4;
+    if(s==="VI" || s==="VIE" || s==="VIERNES") return 5;
+    if(s==="SA" || s==="SAB" || s==="SÁB" || s==="SABADO" || s==="SÁBADO") return 6;
+
+    return null;
+  }
+
   function selectedDowSet1(c){
     ensureWeekdayState(c);
     const set = new Set();
     const arr = Array.isArray(c?.prog?.weekdays) && c.prog.weekdays.length ? c.prog.weekdays : [1,2,3,4,5,6];
     for(const v of arr){
-      const n = Number(v);
-      if([1,2,3,4,5,6].includes(n)) set.add(n);
+      const n = normalizeDowAny(v);
+      if(n) set.add(n);
     }
     return set;
   }
@@ -2750,8 +2769,8 @@ $("btnContinuar").addEventListener("click", ()=>{
     if(!c.prog.extra.enabled) return set;
     const arr = Array.isArray(c?.prog?.extra?.weekdays) ? c.prog.extra.weekdays : [];
     for(const v of arr){
-      const n = Number(v);
-      if([1,2,3,4,5,6].includes(n)) set.add(n);
+      const n = normalizeDowAny(v);
+      if(n) set.add(n);
     }
     return set;
   }
@@ -3619,27 +3638,19 @@ formEls.cupo.addEventListener("input", ()=>{
   function computeSelectionAndHours(c){
     ensureCourseSchedule(c);
 
-    // Preferir byDate (calendario avanzado por horas) cuando exista
-    if(c?.days?.byDate && (c.days.byDate instanceof Map) && c.days.byDate.size){
-      const selected = Array.from(c.days.byDate.keys()).sort();
-      c.days.selected = selected;
-
-      let totalHours = 0;
-      for(const iso of selected){
-        const set = c.days.byDate.get(iso);
-        totalHours += (set && set.size) ? set.size : 0;
-      }
-      totalHours = Math.round(totalHours * 100) / 100;
-      const hoursPerDay = selected.length ? (Math.round((totalHours / selected.length) * 100) / 100) : 0;
-
-      c.computed.hoursPerDay = hoursPerDay;
-      c.computed.totalHours = totalHours;
-
-      return { selected, hoursPerDay, totalHours };
-    }
-
     // Fallback (legacy): rango base - excluidos
     const { baseSelectable } = computeBaseSelectableDays(c);
+
+    const baseSet = new Set(baseSelectable);
+    // Limpiar entradas fuera de rango o excluidas (evita filas "fantasma" al cambiar días/fechas)
+    if(c.days.byDate && (c.days.byDate instanceof Map) && c.days.byDate.size){
+      for(const iso0 of Array.from(c.days.byDate.keys())){
+        if(!baseSet.has(iso0) || c.days.excluded.has(iso0)){
+          c.days.byDate.delete(iso0);
+        }
+      }
+    }
+
     const selected = baseSelectable.filter(iso => !c.days.excluded.has(iso)).sort();
     c.days.selected = selected;
 
@@ -3732,14 +3743,28 @@ function recalcSelectionAndHours(fromCalendar){
           c.days.blocked.add(iso);
         }
       }else{
-        // recortar a horas permitidas, y quitar ocupadas
-        const set = c.days.byDate.get(iso);
-        for(const h of Array.from(set)){
-          if(!allowedIso.includes(h) || isHourBusy(iso, h, c.idx)) set.delete(h);
-        }
-        if(set.size===0){
-          c.days.byDate.delete(iso);
-          c.days.blocked.add(iso);
+        // Si el usuario no ha personalizado horas en el calendario, mantener sincronizado con Hora Inicio/Fin.
+        if(c.days.autoHours){
+          const set = new Set();
+          for(const h of allowedIso){
+            if(!isHourBusyPrior(iso, h, c.idx)) set.add(h);
+          }
+          if(set.size){
+            c.days.byDate.set(iso, set);
+          }else{
+            c.days.byDate.delete(iso);
+            c.days.blocked.add(iso);
+          }
+        }else{
+          // recortar a horas permitidas, y quitar ocupadas
+          const set = c.days.byDate.get(iso);
+          for(const h of Array.from(set)){
+            if(!allowedIso.includes(h) || isHourBusy(iso, h, c.idx)) set.delete(h);
+          }
+          if(set.size===0){
+            c.days.byDate.delete(iso);
+            c.days.blocked.add(iso);
+          }
         }
       }
     }
@@ -3889,6 +3914,10 @@ let badgeClass = "badge";
 
     // Capturar estado actual
     syncUIToState(c);
+
+    // Recalcular selección con el estado actual (evita reportes desincronizados)
+    rebuildDaysByDateFromState(c, { preserveExisting:true, fillIfEmpty:true });
+
 
     // Validación UI (campos obligatorios)
     const missing = validateRequiredUIBeforeSave(c);
@@ -4171,7 +4200,104 @@ let badgeClass = "badge";
   // =========================
   // PDFs
   // =========================
-  function triggerDownloadBlob(blob, filename, idx){
+  
+  // Recalcular desde el STATE (sin depender del botón "Calcular") para evitar PDFs/guardado desincronizados.
+  // - Limpia días fuera de rango o excluidos
+  // - Completa días faltantes según días de semana y horas configuradas
+  // - Aplica bloqueos por cruce/ocupación
+  function rebuildDaysByDateFromState(c, opts){
+    try{ ensureWeekdayState(c); }catch(e){}
+    try{ ensureCourseSchedule(c); }catch(e){}
+
+    const options = opts || {};
+    const preserveExisting = (options.preserveExisting !== false); // default true
+    const fillIfEmpty = (options.fillIfEmpty !== false);           // default true
+
+    const ov = (typeof validateInternalScheduleOverlap === "function") ? validateInternalScheduleOverlap(c) : { ok:true };
+    const ignoreExtra = !ov.ok;
+
+    const baseObj = (typeof computeBaseSelectableDays === "function") ? computeBaseSelectableDays(c) : { baseSelectable:[] };
+    const baseSelectable = Array.isArray(baseObj.baseSelectable) ? baseObj.baseSelectable : [];
+    const baseSet = new Set(baseSelectable);
+
+    if(!c.days) c.days = {};
+    if(!(c.days.excluded instanceof Set)) c.days.excluded = new Set(Array.isArray(c.days.excluded) ? c.days.excluded : []);
+    if(!(c.days.byDate instanceof Map)) c.days.byDate = new Map();
+
+    // Mantener solo excluidos dentro del rango base
+    c.days.excluded = new Set(Array.from(c.days.excluded).filter(iso => baseSet.has(iso)));
+
+    // Reiniciar bloqueados (derivado)
+    c.days.blocked = new Set();
+
+    // Limpieza defensiva
+    for(const iso of Array.from(c.days.byDate.keys())){
+      if(!baseSet.has(iso) || c.days.excluded.has(iso)){
+        c.days.byDate.delete(iso);
+      }
+    }
+
+    // Completar / normalizar selección por día
+    for(const iso of baseSelectable){
+      if(c.days.excluded.has(iso)) continue;
+
+      const allowed = (typeof allowedHoursFromCourse === "function")
+        ? allowedHoursFromCourse(c, iso, { ignoreExtra })
+        : [];
+
+      let cur = c.days.byDate.get(iso);
+      const hasCur = (cur instanceof Set) && cur.size > 0;
+
+      const out = new Set();
+
+      if(preserveExisting && hasCur){
+        // Conservar selección del usuario, pero limpiar horas inválidas / ocupadas
+        for(const h of cur){
+          if(allowed.includes(h) && !(typeof isHourBusyPrior === "function" && isHourBusyPrior(iso, h, c.idx))){
+            out.add(h);
+          }
+        }
+        // Si quedó vacío y se permite, completar con el bloque permitido completo
+        if(out.size === 0 && fillIfEmpty){
+          for(const h of allowed){
+            if(!(typeof isHourBusyPrior === "function" && isHourBusyPrior(iso, h, c.idx))){
+              out.add(h);
+            }
+          }
+        }
+      }else{
+        // Nuevo día: seleccionar todas las horas permitidas disponibles
+        for(const h of allowed){
+          if(!(typeof isHourBusyPrior === "function" && isHourBusyPrior(iso, h, c.idx))){
+            out.add(h);
+          }
+        }
+      }
+
+      if(out.size){
+        c.days.byDate.set(iso, out);
+      }else{
+        c.days.byDate.delete(iso);
+        c.days.blocked.add(iso);
+      }
+    }
+
+    // Derivados
+    const selected = Array.from(c.days.byDate.keys()).sort();
+    c.days.selected = selected;
+
+    let total = 0;
+    for(const iso of selected){
+      total += (c.days.byDate.get(iso)?.size || 0);
+    }
+    c.computed = c.computed || {};
+    c.computed.totalHours = total;
+    c.computed.hoursPerDay = selected.length ? (Math.round((total/selected.length)*100)/100) : 0;
+
+    return { selected, totalHours: total, hoursPerDay: c.computed.hoursPerDay, ignoreExtra };
+  }
+
+function triggerDownloadBlob(blob, filename, idx){
     try{
       const a = document.createElement("a");
       const url = URL.createObjectURL(blob);
@@ -4199,8 +4325,9 @@ let badgeClass = "badge";
     if(!total) return;
 
     // Re-validar todo antes de generar
+    syncUIToState(STATE.cursos[STATE.activeIndex]); // asegura activo
     for(const c of STATE.cursos){
-      syncUIToState(STATE.cursos[STATE.activeIndex]); // asegura activo
+      rebuildDaysByDateFromState(c, { preserveExisting:true, fillIfEmpty:true });
       const errs = validateCourse(c);
       if(errs.length){
         toast(`No se puede generar: Curso ${c.idx+1} tiene pendientes.`);
@@ -4213,6 +4340,7 @@ let badgeClass = "badge";
 
     // Generar secuencialmente (un PDF por ficha)
     STATE.cursos.forEach((c, idx)=>{
+      rebuildDaysByDateFromState(c, { preserveExisting:true, fillIfEmpty:true });
       const pdf = buildPdfForCourse(c);
       const datePart = todayYYYYMMDD();
       const instructorPart = normalizeFileNamePart(STATE.instructor.nombre);
@@ -4708,11 +4836,11 @@ let badgeClass = "badge";
     // Row 1
     label(c1X, y+5.0, "Nombre de empresa*", 9, false);
     rect(c1X+36, y, colW-36, rh, false, true);
-    drawFitTextUpperTight(c.empresa.nombre || "", c1X+36, y, colW-36, rh, 8.6, 6.0, true);
+    drawFitTextUpperCentered((c.empresa.nombre || ""), c1X+36, y, colW-36, rh, 8.6, 6.0, true);
 
     label(c2X, y+5.0, "Convenio:", 9, false);
     rect(c2X+22, y, colW-22, rh, false, true);
-    drawFitTextUpperTight(c.empresa.convenio || "", c2X+22, y, colW-22, rh, 8.6, 6.0, true);
+    drawFitTextUpperCentered((c.empresa.convenio || ""), c2X+22, y, colW-22, rh, 8.6, 6.0, true);
 
     y += rh + gapForm;
 
@@ -4869,7 +4997,11 @@ let badgeClass = "badge";
       doc.setFontSize(8);
       headers.forEach((h,i)=> doc.text(h, daysX + i*cellW + cellW/2, daysY+3.2, { align:"center" }));
 
-      const set = new Set((weekdaysArr||[]).map(Number));
+      const set = new Set();
+      for(const v of (weekdaysArr||[])){
+        const n = normalizeDowAny(v);
+        if(n) set.add(n);
+      }
       const markFor = (h)=>{
         if(h==="LU") return set.has(1);
         if(h==="MA") return set.has(2);
@@ -4914,256 +5046,257 @@ let badgeClass = "badge";
 
 // Observaciones (sin borde; menor altura)
     label(ex, y+5.0, "Observaciones:", 9, false);
-    const obsX = ex+12;
-    const obsW = pageW - obsX - margin - 6;
-    const sigTopY = pageH - margin - 26; // inicio área firmas (más espacio para observaciones)
-    const obsH = Math.max(12, Math.min(112, sigTopY - y - 2));
 
-    // Partes (programación a la izquierda; restricciones/advertencias a la derecha)
-    const obsUser = String(c.prog.obs||"").trim();
+    const sigTopY = pageH - margin - 26; // inicio área firmas
 
-    // Restricciones y advertencias (numeración continua; amarillo al final)
-    const rightItems = [];
+    // Ancho total disponible para texto y tabla
+    const fullX = ex;
+    const fullW = pageW - 2*margin;
+
+    // Texto del usuario (observaciones)
+    const obsUser = String(c?.prog?.obs || "").trim();
+
+    // Restricciones / Advertencias (como líneas separadas, debajo de Observaciones)
+    const restr = [];
     if(c?.prog?.start){
       const bd = countBusinessDaysFromTomorrowTo(c.prog.start);
-      if(bd < 5) rightItems.push({ color:"red", text:"La ficha se está solicitando con menos de 5 días hábiles." });
+      if(bd < 5) restr.push("La ficha se está solicitando con menos de 5 días hábiles.");
     }
     const cupoV = Number(c?.prog?.cupo || 0);
-    if(cupoV && cupoV < 30) rightItems.push({ color:"red", text:`El cupo de esta ficha se está solicitando con ${cupoV} aprendices; recuerde que el mínimo son 30 aprendices.` });
-
+    if(cupoV && cupoV < 30){
+      restr.push(`El cupo de esta ficha se está solicitando con ${cupoV} aprendices. Recuerde que el mínimo son 30 aprendices.`);
+    }
     const progH = Number(c?.program?.hours || 0);
-    if(progH && progH > 60) rightItems.push({ color:"red", text:"La duración de este curso supera las 60 horas, en las cuales el instructor podrá solicitar apertura." });
-
+    if(progH && progH > 60){
+      restr.push("La duración de este curso supera las 60 horas, en las cuales el instructor podrá solicitar apertura.");
+    }
     const aMed = String(c?.program?.aMedida || "").trim().toUpperCase();
-    if(aMed === "SI") rightItems.push({ color:"red", text:"Este curso que se solicita es a la medida." });
-
-    // Advertencia (amarillo) SI duración > horas programadas (no bloquea)
-    const totalHPdf = Number((c?.computed?.totalHours) || 0);
-    if(progH && totalHPdf && totalHPdf < progH){
-      rightItems.push({ color:"yellow", text:`El curso se programará con menos horas: ${totalHPdf} de ${progH} (Duración).` });
+    if(aMed === "SI"){
+      restr.push("Este curso que se solicita es a la medida.");
     }
 
-    // Programación (izquierda): horario genérico + excepciones por día (lun..sab)
-    const _wdAbbrev = (dt)=> (["dom","lun","mar","mie","jue","vie","sab"][dt.getDay()] || "");
-    const _rangesToStrA = (ranges)=>{
-      if(!ranges || !ranges.length) return "";
-      return ranges.map(([a,b])=> `${pad2(a)}:00 a ${pad2(b)}:00`).join(" - ");
-    };
-    const _rangesFromSet = (setHours)=>{
-      const arr = Array.from(setHours||[]).sort((a,b)=>a-b);
-      const ranges = [];
-      let s=null, prev=null;
-      for(const h of arr){
-        if(s===null){ s=h; prev=h; continue; }
-        if(h===prev+1){ prev=h; continue; }
-        ranges.push([s, prev+1]);
-        s=h; prev=h;
+    // Advertencia (si aplica)
+    const totalHPdf = Number((c?.computed?.totalHours) || 0);
+    if(progH && totalHPdf && totalHPdf < progH){
+      restr.push(`El curso se programará con menos horas: ${totalHPdf} de ${progH} (Duración).`);
+    }
+
+    // --- Render texto (Observaciones + Restricciones) ---
+    const lh = 3.4;
+    const textX = fullX;
+    const textW = fullW;
+
+    const obsTextY = y + 9.0;
+    let obsTextH = 0;
+
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(6.6);
+    doc.setTextColor(0,0,0);
+
+    const lines = [];
+    if(obsUser){
+      const l1 = doc.splitTextToSize(obsUser, textW);
+      l1.forEach(ln => lines.push(String(ln)));
+    }
+    // Restricciones: una por línea (con wrap si se requiere)
+    if(restr.length){
+      if(lines.length) lines.push(""); // línea en blanco entre obs y restricciones
+      restr.forEach(t=>{
+        const ll = doc.splitTextToSize(String(t), textW);
+        ll.forEach(ln => lines.push(String(ln)));
+      });
+    }
+
+    if(lines.length){
+      // Dejar espacio mínimo para que al menos el encabezado y algunas filas de tabla entren en la primera página.
+      const minTableSpace = 65;
+      const maxLines = Math.max(1, Math.floor((sigTopY - obsTextY - minTableSpace) / lh));
+      const drawLines = lines.slice(0, maxLines);
+      if(lines.length > drawLines.length && drawLines.length){
+        drawLines[drawLines.length-1] = String(drawLines[drawLines.length-1]) + " …";
       }
-      if(s!==null) ranges.push([s, prev+1]);
-      return ranges;
-    };
-    const _toDDMM = (iso)=>{
-      const dt = parseISODate(iso);
-      if(!dt) return iso || "";
-      return `${pad2(dt.getDate())}/${pad2(dt.getMonth()+1)}`;
-    };
+      doc.text(drawLines, textX, obsTextY);
+      obsTextH = drawLines.length * lh;
+    }
 
-    const _wdNameEs = (wd)=>({
-      lun:"LU",
-      mar:"MA",
-      mie:"MI",
-      jue:"JU",
-      vie:"VI",
-      sab:"SA"
-    }[wd] || String(wd||"").toUpperCase());
+    // --- PROGRAMACIÓN (después de Restricciones) ---
+    const topY = obsTextY + obsTextH + 6.0;
 
-    const _rangesToHHBlock = (ranges)=>{
-      // Formato compacto HH-HH (ej. 06-12) para ahorrar espacio.
-      if(!ranges || !ranges.length) return "";
-      return ranges.map(([a,b])=> `${pad2(a)}-${pad2(b)}`).join(" / ");
-    };
+    doc.setFontSize(7.6);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(0,0,0);
+    doc.text("PROGRAMACIÓN:", fullX, topY);
 
-    // Tabla "Opción 2": Día de la Semana | Horario | Fechas Asignadas (DD/MM; DD/MM)
+// Tabla de programación (una sola)
+    // Construir filas de tabla de programación (Día | Horario | Fechas asignadas)
     const programTableRows = [];
-    if(c?.days?.byDate && (c.days.byDate instanceof Map) && c.days.byDate.size){
-      const perDay = new Map(); // wd -> Map(horario -> { isos:[], sortKey:number })
-      for(const [iso,setHours] of Array.from(c.days.byDate.entries())){
+    const _progHorasNum = Number(c?.program?.hours || 0);
+
+    (function(){
+      const byDate = c?.days?.byDate;
+      if(!(byDate && (byDate instanceof Map) && byDate.size)) return;
+
+      const wdLabel = (wd)=>{
+        switch(wd){
+          case 1: return "LU";
+          case 2: return "MA";
+          case 3: return "MI";
+          case 4: return "JU";
+          case 5: return "VI";
+          case 6: return "SA";
+          default: return "";
+        }
+      };
+
+      const rangesFromSet = (setHours)=>{
+        const arr = Array.from(setHours||[]).filter(v=>Number.isFinite(v)).sort((a,b)=>a-b);
+        const out = [];
+        let s = null, prev = null;
+        for(const h of arr){
+          if(s===null){ s=h; prev=h; continue; }
+          if(h === prev + 1){ prev = h; continue; }
+          out.push([s, prev + 1]);
+          s = h; prev = h;
+        }
+        if(s!==null) out.push([s, prev + 1]);
+        return out;
+      };
+
+      // wd (1..6) -> Map(horarioKey -> {a,b, isos:[]})
+      const perDay = new Map();
+
+      for(const [iso,setHours] of Array.from(byDate.entries())){
         const dt = parseISODate(iso);
         if(!dt) continue;
-        const wd = _wdAbbrev(dt);
-        if(wd==="dom") continue; // no se programa domingo
-
-        const ranges = _rangesFromSet(setHours);
-        if(!ranges || !ranges.length) continue;
+        const wd = dt.getDay(); // 0..6
+        if(wd===0) continue; // no domingo
+        const ranges = rangesFromSet(setHours);
+        if(!ranges.length) continue;
 
         if(!perDay.has(wd)) perDay.set(wd, new Map());
         const m = perDay.get(wd);
 
-        // Cada rango de horas genera una fila (p. ej. 06-12 y 18-22)
         for(const rg of ranges){
           const a = rg[0], b = rg[1];
-          const horario = `${String(a).padStart(2,"0")}-${String(b).padStart(2,"0")}`;
-          const sortKey = a;
-
-          if(!m.has(horario)) m.set(horario, { isos:[], sortKey });
-          m.get(horario).isos.push(iso);
+          const key = `${pad2(a)}-${pad2(b)}`;
+          if(!m.has(key)) m.set(key, { a, b, isos: [] });
+          m.get(key).isos.push(iso);
         }
       }
 
-      const baseOrder = ["lun","mar","mie","jue","vie","sab"];
-      let startWd = null;
+      // Orden de días: Horario 1 ∪ Horario 2 (LU..SA)
+      let wdOrder = [1,2,3,4,5,6];
       try{
-        const sd = parseISODate(String(c?.prog?.start || ""));
-        startWd = sd ? _wdAbbrev(sd) : null;
-      }catch(e){}
-      if(!startWd || !baseOrder.includes(startWd)){
-        const allIsos = [];
-        for(const m of perDay.values()){
-          for(const obj of m.values()) allIsos.push(...(obj.isos||[]));
+        if(typeof selectedDowSet === "function"){
+          const s = selectedDowSet(c);
+          if(s && s.size){
+            wdOrder = Array.from(s).filter(n=>n>=1 && n<=6).sort((a,b)=>a-b);
+          }
         }
-        const firstISO = allIsos.sort()[0] || "";
-        const fd = parseISODate(firstISO);
-        startWd = (fd && baseOrder.includes(_wdAbbrev(fd))) ? _wdAbbrev(fd) : "lun";
-      }
-      const si = Math.max(0, baseOrder.indexOf(startWd));
-      const order = baseOrder.slice(si).concat(baseOrder.slice(0, si));
+      }catch(e){}
 
-      for(const wd of order){
+
+      for(const wd of wdOrder){
         const m = perDay.get(wd);
         if(!m) continue;
 
-        const dayName = _wdNameEs(wd);
-        const scheds = Array.from(m.entries()).map(([hor,obj])=>({
-          hor,
-          isos: (obj.isos || []).slice().sort(),
-          sortKey: Number.isFinite(obj.sortKey) ? obj.sortKey : 99
-        })).sort((a,b)=> (a.sortKey-b.sortKey) || String(a.hor).localeCompare(String(b.hor)));
+        const entries = Array.from(m.entries()).map(([hor,obj])=>({ horario: hor, a: obj.a, b: obj.b, isos: obj.isos }));
+        entries.sort((x,y)=> (x.a - y.a) || (x.b - y.b) || x.horario.localeCompare(y.horario));
 
-        let first = true;
-        for(const s of scheds){
-          const fechas = s.isos.map(_toDDMM).join("; ");
-          programTableRows.push({
-            day: first ? dayName : "",
-            horario: s.hor || "",
-            fechas: fechas || ""
-          });
-          first = false;
+        for(const it of entries){
+          const fechasArr = it.isos.slice().sort().map(iso=>{
+            const dt = parseISODate(iso);
+            if(!dt) return "";
+            return `${pad2(dt.getDate())}/${pad2(dt.getMonth()+1)}`;
+          }).filter(Boolean);
+
+          let fechas = "";
+          if(fechasArr.length <= 10){
+            fechas = fechasArr.join("; ");
+          } else {
+            const chunks = [];
+            for(let i=0; i<fechasArr.length; i+=10){
+              chunks.push(fechasArr.slice(i, i+10).join("; "));
+            }
+            fechas = chunks.join(";\n");
+          }
+
+          programTableRows.push({ day: wdLabel(wd), horario: it.horario, fechas });
         }
       }
-    }
+    })();
 
-    if(!programTableRows.length){
-      programTableRows.push({ day:"--", horario:"", fechas:"(Sin programación)" });
-    }
 
-  
-    // Ajustes de layout: 2 tablas (3 días + 3 días) para evitar truncamientos verticales.
-    // - Tabla izquierda: primeros 3 días en el orden de programación (cíclico)
-    // - Tabla derecha: días restantes
-    // - Día abreviado: LU/MA/MI/JU/VI/SA
-    // - Columna "Fechas Asignadas" más angosta
-
-    const gap12 = 4.0;     // entre tabla izquierda y derecha (0.4 cm)
-    const gap23 = 5.0;     // entre bloque de programación y restricciones (0.5 cm)
-    const col3W = Math.max(36, obsW * 0.28); // Restricciones/Advertencias
-    const leftW = obsW - col3W - gap23;
-    const col1W = (leftW - gap12) / 2;
-    const col2W = col1W;
-
-    const col1X = obsX;
-    const col2X = obsX + col1W + gap12;
-    const col3X = col2X + col2W + gap23;
-
-    const topY = y + 2.6;
-    const lh = 3.4;
-    const leftBottomY = (y + obsH) - 2; // margen inferior dentro de "Observaciones"
-
-    // PROGRAMACIÓN
-    doc.setFontSize(7.4);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(0,0,0);
-    doc.text("PROGRAMACIÓN:", col1X, topY);
-
-    const tableY = topY + lh + 1.0;
-
-    // Partir por grupos de día (para no dividir un día entre tablas)
-    const dayGroups = [];
-    for(const r of (programTableRows || [])){
-      const isStart = String(r?.day || "").trim() !== "";
-      if(isStart || dayGroups.length === 0){
-        dayGroups.push({ rows:[r] });
-      }else{
-        dayGroups[dayGroups.length-1].rows.push(r);
-      }
-    }
-
-    const leftGroups = dayGroups.slice(0, 3);
-    const rightGroups = dayGroups.slice(3);
-
-    const leftTableRows = leftGroups.flatMap(g => g.rows);
-    const rightTableRows = rightGroups.flatMap(g => g.rows);
-
-    // Reserva mínima para NOTAS si existen (bajo las tablas)
-    const maxTableBottomY = leftBottomY - (obsUser ? 12 : 0);
+    const tableY = topY + lh + 1.4;
+    const tableX = fullX;
+    const tableW = fullW;
+    const maxTableBottomY = pageH - margin - 6; // permitir más filas; firmas se mueven si es necesario
 
     // Parámetros comunes de tabla
     const cellPadX = 1.2;
     const cellPadY = 1.2;
     const lineH = 4.2;
 
-    const drawProgramTable = (rowsIn, tableX, tableTopY, tableW)=>{
+    let _progWasTruncated = false;
+
+    
+    const drawProgramTablePaged = (rowsIn, tableX, tableTopY, tableW)=>{
       const rowsSrc = (rowsIn && rowsIn.length) ? rowsIn : [{ day:"", horario:"", fechas:"" }];
 
-      // Anchos de columna: día muy angosto; fechas más angosta; horario ocupa el resto
-      let dayW = Math.max(9, tableW * 0.16);
-      let fecW = Math.max(16, tableW * 0.32);
-      let horW = tableW - dayW - fecW;
+      let lastEndY = tableTopY;
 
-      // Asegurar ancho mínimo para Horario
-      if(horW < 14){
-        const needed = 14 - horW;
-        const reducF = Math.min(needed, Math.max(0, fecW - 14));
-        fecW -= reducF; horW += reducF;
-        if(horW < 14){
-          const reducD = Math.min(14 - horW, Math.max(0, dayW - 8));
-          dayW -= reducD; horW += reducD;
-        }
-      }
+      // Mantener el ancho total de la tabla (no recortar filas por encoger la tabla).
+      // Solo ajustar (hacer más angostas) las columnas Día y Horario.
+      const clamp = (v, lo, hi)=> Math.max(lo, Math.min(hi, v));
 
-      let curY = tableTopY;
-
-      // Header
-      const headH = 9.2;
-      doc.setFont("helvetica","bold");
-      doc.setFontSize(9);
-      doc.setFillColor(245,245,245);
-      doc.setDrawColor(0,0,0);
-      doc.setLineWidth(0.2);
-
-      doc.rect(tableX, curY, tableW, headH, "F");
-      doc.rect(tableX, curY, tableW, headH);
-
-      doc.line(tableX + dayW, curY, tableX + dayW, curY + headH);
-      doc.line(tableX + dayW + horW, curY, tableX + dayW + horW, curY + headH);
-
-      // Títulos (con wrap en "Fechas Asignadas")
-      const hDay = "Día";
-      const hHor = "Horario";
-      const hFecLines = doc.splitTextToSize("Fechas Asignadas", Math.max(1, fecW - cellPadX*2));
-
-      doc.text(hDay, tableX + cellPadX, curY + 6.1);
-      doc.text(hHor, tableX + dayW + cellPadX, curY + 6.1);
-      // si son 2 líneas, bajar el inicio para centrar visualmente
-      const hfY = (hFecLines.length > 1) ? (curY + 4.7) : (curY + 6.1);
-      doc.text(hFecLines, tableX + dayW + horW + cellPadX, hfY);
-
-      curY += headH;
-
-      // Body
+      // Medición consistente con el cuerpo de tabla
       doc.setFont("helvetica","normal");
       doc.setFontSize(9);
 
-      const makeRow = (dayTxt, horTxt, fecTxt, forceNewGroup=false)=>{
+      const measureW = (txt, bold)=>{
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        return doc.getTextWidth(String(txt||""));
+      };
+
+      const dayNeed = Math.max(
+        measureW("Día", true),
+        ...rowsSrc.map(r => measureW(r.day, false))
+      ) + 2*cellPadX + 4;
+
+      const horNeed = Math.max(
+        measureW("Horario", true),
+        ...rowsSrc.map(r => measureW(r.horario, false))
+      ) + 2*cellPadX + 4;
+
+      const dayW = clamp(dayNeed, 12, 18);
+      const horW = clamp(horNeed, 20, 32);
+
+      // Ancho requerido por "Fechas Asignadas" según el texto más largo (línea más larga)
+      const maxLineWidth = (txt, bold)=>{
+        const parts = String(txt||"").split("\n");
+        let mx = 0;
+        for(const p of parts){
+          mx = Math.max(mx, measureW(p, bold));
+        }
+        return mx;
+      };
+
+      const fecNeed = Math.max(
+        maxLineWidth("Fechas Asignadas", true),
+        ...rowsSrc.map(r => maxLineWidth(r.fechas, false))
+      ) + 2*cellPadX + 4;
+
+      // Ajustar el ancho total de tabla al contenido (sin exceder el ancho disponible)
+      const TWNeeded = dayW + horW + Math.max(20, fecNeed);
+      const TW = Math.min(tableW, TWNeeded);
+      const fecW = Math.max(20, TW - dayW - horW);
+
+      // Centrar la tabla cuando el ancho calculado (TW) sea menor al ancho disponible (tableW)
+      const tableXCentered = tableX + Math.max(0, (tableW - TW) / 2);
+
+      const headH = 9.2;
+
+      const makeRow = (dayTxt, horTxt, fecTxt)=>{
         const tDay = String(dayTxt || "");
         const tHor = String(horTxt || "");
         const tFec = String(fecTxt || "");
@@ -5172,182 +5305,157 @@ let badgeClass = "badge";
         const lFec = doc.splitTextToSize(tFec, Math.max(1, fecW - cellPadX*2));
         const maxL = Math.max(lDay.length || 1, lHor.length || 1, lFec.length || 1);
         const rowH = maxL*lineH + cellPadY*2;
-        return { tDay, tHor, tFec, lDay, lHor, lFec, rowH, forceNewGroup: !!forceNewGroup };
+        return { tDay, tHor, tFec, lDay, lHor, lFec, rowH };
       };
 
-      const prepared = rowsSrc.map(r => makeRow(r.day, r.horario, r.fechas, false));
+      const prepared = rowsSrc.map(r => makeRow(r.day, r.horario, r.fechas));
 
-      // Recorte por alto disponible (por cada tabla)
-      const rows = [];
-      let yProbe = curY; // justo después del header
-      let truncated = false;
-
-      for(let i=0;i<prepared.length;i++){
-        const rr = prepared[i];
-        if(yProbe + rr.rowH > maxTableBottomY){
-          truncated = true;
-          break;
-        }
-        rr.y = yProbe;
-        rows.push(rr);
-        yProbe += rr.rowH;
-      }
-
-      if(truncated){
-        const msg = makeRow("", "", "(Más filas no visibles)", true);
-        if(yProbe + msg.rowH <= maxTableBottomY){
-          msg.y = yProbe;
-          rows.push(msg);
-          yProbe += msg.rowH;
-        }
-      }
-
-      const bodyStartY = curY;
-      const bodyH = yProbe - bodyStartY;
-
-      const drawCellTextAt = (lines, x, yTop, w, vAlign="top", groupH=0)=>{
-        const xx = x + cellPadX;
-        const usableW = Math.max(1, w - cellPadX*2);
-        const safeLines = (lines && lines.length) ? lines : [""];
-        const textBlockH = safeLines.length * lineH;
-        let y0 = yTop + cellPadY + 2.0;
-        if(vAlign === "middle" && groupH > 0){
-          const extra = Math.max(0, (groupH - (textBlockH + cellPadY*2)) / 2);
-          y0 = yTop + extra + cellPadY + 2.0;
-        }
-        safeLines.forEach((ln, i)=>{
-          doc.text(String(ln||""), xx, y0 + i*lineH, { maxWidth: usableW });
-        });
-      };
-
-      if(bodyH > 0){
-        // groupId para “combinar” la columna Día (sin líneas internas)
-        let groupId = -1;
-        for(let i=0;i<rows.length;i++){
-          const rr = rows[i];
-          const nonEmptyDay = String(rr.tDay||"").trim() !== "";
-          const isStart = (i === 0) || rr.forceNewGroup || nonEmptyDay;
-          if(isStart) groupId++;
-          rr.groupId = groupId;
-          rr.isGroupStart = isStart;
-        }
-
-        // Borde exterior del cuerpo + separadores verticales
+      const drawHeader = (x, y)=>{
+        doc.setFont("helvetica","bold");
+        doc.setFontSize(9);
+        doc.setFillColor(245,245,245);
         doc.setDrawColor(0,0,0);
         doc.setLineWidth(0.2);
-        doc.rect(tableX, bodyStartY, tableW, bodyH);
-        doc.line(tableX + dayW, bodyStartY, tableX + dayW, bodyStartY + bodyH);
-        doc.line(tableX + dayW + horW, bodyStartY, tableX + dayW + horW, bodyStartY + bodyH);
 
-        // Líneas horizontales por fila
-        for(let i=0;i<rows.length-1;i++){
-          const a = rows[i];
-          const b = rows[i+1];
-          const yLine = a.y + a.rowH;
+        doc.rect(x, y, TW, headH, "F");
+        doc.rect(x, y, TW, headH);
+        doc.line(x + dayW, y, x + dayW, y + headH);
+        doc.line(x + dayW + horW, y, x + dayW + horW, y + headH);
 
-          // Si continúa el mismo día (b tiene día vacío), no se dibuja línea en la columna "Día"
-          const continuesSameDay = (a.groupId === b.groupId) && !b.forceNewGroup && (String(b.tDay||"").trim() === "");
-          const xFrom = continuesSameDay ? (tableX + dayW) : tableX;
+        const hFecLines = doc.splitTextToSize("Fechas Asignadas", Math.max(1, fecW - cellPadX*2));
+        doc.text("Día", x + cellPadX, y + 6.1);
+        doc.text("Horario", x + dayW + cellPadX, y + 6.1);
+        const hfY = (hFecLines.length > 1) ? (y + 4.7) : (y + 6.1);
+        doc.text(hFecLines, x + dayW + horW + cellPadX, hfY);
+      };
 
-          doc.line(xFrom, yLine, tableX + tableW, yLine);
+      const drawPage = (startIdx, x, topY)=>{
+        let curY = topY;
+
+        drawHeader(x, curY);
+        curY += headH;
+
+        doc.setFont("helvetica","normal");
+        doc.setFontSize(9);
+
+        const pageRows = [];
+        let yProbe = curY;
+        let i = startIdx;
+
+        for(; i<prepared.length; i++){
+          const rr = prepared[i];
+          if(yProbe + rr.rowH > maxTableBottomY) break;
+          pageRows.push({ ...rr, y: yProbe });
+          yProbe += rr.rowH;
         }
 
-        // Texto por fila (Horario y Fechas)
-        for(let i=0;i<rows.length;i++){
-          const rr = rows[i];
-          drawCellTextAt(rr.lHor, tableX + dayW, rr.y, horW);
-          drawCellTextAt(rr.lFec, tableX + dayW + horW, rr.y, fecW);
+        // Si no cabe ninguna fila (muy raro), forzar al menos una
+        if(pageRows.length === 0 && startIdx < prepared.length){
+          const rr = prepared[startIdx];
+          pageRows.push({ ...rr, y: curY });
+          yProbe = curY + rr.rowH;
+          i = startIdx + 1;
         }
 
-        // Texto Día (una vez por grupo, centrado verticalmente)
-        for(let i=0;i<rows.length;){
-          const rr0 = rows[i];
-          const gid = rr0.groupId;
-          let j = i;
-          let gH = 0;
-          while(j < rows.length && rows[j].groupId === gid){
-            gH += rows[j].rowH;
-            j++;
+        const bodyStartY = curY;
+        const bodyH = Math.max(0, yProbe - bodyStartY);
+
+        const drawCellTextAt = (lines, xx, yTop, w)=>{
+          const x0 = xx + cellPadX;
+          const usableW = Math.max(1, w - cellPadX*2);
+          const safeLines = (lines && lines.length) ? lines : [""];
+          let y0 = yTop + cellPadY + 2.0;
+          safeLines.forEach((ln, k)=>{
+            doc.text(String(ln||""), x0, y0 + k*lineH, { maxWidth: usableW });
+          });
+        };
+
+        if(bodyH > 0){
+          doc.setDrawColor(0,0,0);
+          doc.setLineWidth(0.2);
+          doc.rect(x, bodyStartY, TW, bodyH);
+          doc.line(x + dayW, bodyStartY, x + dayW, bodyStartY + bodyH);
+          doc.line(x + dayW + horW, bodyStartY, x + dayW + horW, bodyStartY + bodyH);
+
+          for(let r=0; r<pageRows.length-1; r++){
+            const yLine = pageRows[r].y + pageRows[r].rowH;
+            doc.line(x, yLine, x + TW, yLine);
           }
-          if(String(rr0.tDay||"").trim() !== ""){
-            drawCellTextAt(rr0.lDay, tableX, rr0.y, dayW, "middle", gH);
+
+          for(const rr of pageRows){
+            drawCellTextAt(rr.lDay, x, rr.y, dayW);
+            drawCellTextAt(rr.lHor, x + dayW, rr.y, horW);
+            drawCellTextAt(rr.lFec, x + dayW + horW, rr.y, fecW);
           }
-          i = j;
+        }
+
+        return { nextIndex: i, endY: bodyStartY + bodyH };
+      };
+
+      // Render paginado (sin eliminar filas). Si se excede el alto, se crea página(s) adicional(es).
+      let idx = 0;
+      let first = true;
+      while(idx < prepared.length){
+        if(first){
+          const out = drawPage(idx, tableXCentered, tableTopY);
+          lastEndY = out.endY;
+          idx = out.nextIndex;
+          first = false;
+          if(idx >= prepared.length) break;
+        } else {
+          doc.addPage();
+
+          // Marco mínimo de página (consistencia visual)
+          doc.setDrawColor(0,0,0);
+          doc.setLineWidth(0.35);
+          doc.rect(margin, margin, pageW-2*margin, pageH-2*margin);
+
+          // Encabezado sección
+          rect(margin+2, margin+2, pageW-2*margin-4, 6, true, true);
+          doc.setFont("helvetica","bold");
+          doc.setFontSize(9.5);
+          doc.text("INFORMACION DE PROGRAMACION* (CONTINUACIÓN)", pageW/2, margin+2+4.4, { align:"center" });
+
+          // Título de programación
+          const contY = margin + 16;
+          doc.setFont("helvetica","bold");
+          doc.setFontSize(7.6);
+          doc.setTextColor(0,0,0);
+          doc.text("PROGRAMACIÓN (CONTINUACIÓN):", fullX, contY);
+
+          const out = drawPage(idx, tableXCentered, contY + lh + 1.4);
+          lastEndY = out.endY;
+          idx = out.nextIndex;
         }
       }
 
-      return bodyStartY + Math.max(0, bodyH);
+      return { lastEndY };
+
     };
 
-    // Dibujar tablas (izquierda siempre; derecha solo si hay días restantes)
-    const endYLeft = drawProgramTable(leftTableRows, col1X, tableY, col1W);
-    const endYRight = (rightTableRows && rightTableRows.length)
-      ? drawProgramTable(rightTableRows, col2X, tableY, col2W)
-      : tableY;
+    const _progTblOut = drawProgramTablePaged(programTableRows, tableX, tableY, tableW);
 
-    // Avanzar cursor después de las tablas
-    const tableX = col1X; // referencia para NOTAS
-    const tableW = leftW;  // ancho disponible (ambas tablas)
-    let curY = Math.max(endYLeft, endYRight);
-  // NOTAS (texto libre del usuario)
-    if(obsUser){
-      curY += 5.0;
-      if(curY < leftBottomY - 2){
-        doc.setFont("helvetica","bold");
-        doc.setFontSize(6.6);
-        doc.text("NOTAS:", tableX, curY);
-        curY += lh;
-        doc.setFont("helvetica","normal");
-        doc.setFontSize(6.2);
+    // Si la tabla ocupó el espacio reservado para firmas, mover firmas a una nueva página
+    if(_progTblOut && typeof _progTblOut.lastEndY === "number" && _progTblOut.lastEndY > (sigTopY - 2)){
+      doc.addPage();
 
-        const noteLines = doc.splitTextToSize(String(obsUser||""), tableW);
-        const maxNotes = Math.max(0, Math.floor((leftBottomY - curY) / lh));
-        noteLines.slice(0, maxNotes).forEach((ln,i)=> doc.text(ln, tableX, curY + i*lh));
-      }
+      // Marco de página
+      doc.setDrawColor(0,0,0);
+      doc.setLineWidth(0.35);
+      doc.rect(margin, margin, pageW-2*margin, pageH-2*margin);
+
+      // Encabezado
+      rect(margin+2, margin+2, pageW-2*margin-4, 6, true, true);
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(9.5);
+      doc.text("INFORMACION DE PROGRAMACION*", pageW/2, margin+2+4.4, { align:"center" });
     }
+
 
     // reset color
     doc.setTextColor(0,0,0);
+// Firmas (sin borde)
 
-    // RESTRICCIONES / ADVERTENCIAS (col 3)
-    let yyR = tableY + 1.0;
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(6.8);
-    doc.setTextColor(0,0,0);
-    doc.text("RESTRICCIONES / ADVERTENCIAS:", col3X, yyR);
-    yyR += lh;
-
-    doc.setFont("helvetica","normal");
-    const maxLinesR = Math.max(0, Math.floor((sigTopY - yyR - 2) / lh));
-    let used = 0;
-
-    if(!rightItems.length){
-      doc.setTextColor(0,0,0);
-      doc.text("Ninguna.", col3X, yyR);
-    }else{
-      for(let i=0;i<rightItems.length;i++){
-        const it = rightItems[i];
-        const prefix = `${i+1}. `;
-        const col = (it.color === "yellow") ? [180,120,0] : [200,0,0];
-        doc.setTextColor(col[0], col[1], col[2]);
-
-        const lines = doc.splitTextToSize(prefix + String(it.text||""), col3W);
-        for(const ln of lines){
-          if(used >= maxLinesR) break;
-          doc.text(ln, col3X, yyR + used*lh);
-          used++;
-        }
-        if(used >= maxLinesR) break;
-      }
-    }
-
-    // reset color
-    doc.setTextColor(0,0,0);
-
-    y += obsH;
-
-
-    // Firmas (sin borde)
     const sigY = sigTopY;
     const sigW = (pageW - 2*margin - 16) / 2;
 
@@ -5408,7 +5516,8 @@ let badgeClass = "badge";
     doc.setTextColor(100, 116, 139);
     doc.text(`Fecha de Elaboración: ${fechaElab}`, pageW - margin, pageH - 5, { align:"right" });
     doc.setTextColor(0,0,0);
-return doc;
+
+    return doc;
   }
 
 
@@ -5657,6 +5766,7 @@ return doc;
         selected: [],
         byDate: new Map(),
         activeISO: null,
+        autoHours: true,
         partialNotified: new Set() // para evitar repetir avisos por disponibilidad parcial
       };
     }
@@ -5666,7 +5776,9 @@ return doc;
     if(!c.days.selected) c.days.selected = [];
     if(typeof c.days.activeISO === "undefined") c.days.activeISO = null;
     if(!c.days.partialNotified) c.days.partialNotified = new Set();
-  }
+  
+    if(typeof c.days.autoHours === "undefined") c.days.autoHours = true;
+}
 
 
 
@@ -5848,14 +5960,28 @@ return doc;
           c.days.blocked.add(iso);
         }
       }else{
-        // recortar a horas permitidas, y quitar ocupadas
-        const set = c.days.byDate.get(iso);
-        for(const h of Array.from(set)){
-          if(!allowedIso.includes(h) || isHourBusy(iso, h, c.idx)) set.delete(h);
-        }
-        if(set.size===0){
-          c.days.byDate.delete(iso);
-          c.days.blocked.add(iso);
+        // Si el usuario no ha personalizado horas en el calendario, mantener sincronizado con Hora Inicio/Fin.
+        if(c.days.autoHours){
+          const set = new Set();
+          for(const h of allowedIso){
+            if(!isHourBusyPrior(iso, h, c.idx)) set.add(h);
+          }
+          if(set.size){
+            c.days.byDate.set(iso, set);
+          }else{
+            c.days.byDate.delete(iso);
+            c.days.blocked.add(iso);
+          }
+        }else{
+          // recortar a horas permitidas, y quitar ocupadas
+          const set = c.days.byDate.get(iso);
+          for(const h of Array.from(set)){
+            if(!allowedIso.includes(h) || isHourBusy(iso, h, c.idx)) set.delete(h);
+          }
+          if(set.size===0){
+            c.days.byDate.delete(iso);
+            c.days.blocked.add(iso);
+          }
         }
       }
     }
@@ -6168,6 +6294,7 @@ function renderHourPanel(c){
     // listeners horas
     hourList.querySelectorAll('input[type="checkbox"][data-hour]').forEach(chk=>{
       chk.addEventListener("change", ()=>{
+        c.days.autoHours = false;
         const h = Number(chk.getAttribute("data-hour"));
         const currentSet = new Set(Array.from(set));
         if(chk.checked) currentSet.add(h); else currentSet.delete(h);
@@ -6212,6 +6339,7 @@ function renderHourPanel(c){
 
   function applyHourSetToAllDays(c, hourSet){
     ensureCourseSchedule(c);
+    c.days.autoHours = false;
     const removedDays = [];
     for(const iso of Array.from(c.days.byDate.keys())){
       const set = new Set();
@@ -6513,6 +6641,7 @@ function renderHourPanel(c){
     const c = getActive();
     if(!c) return;
     ensureCourseSchedule(c);
+    c.days.autoHours = false;
     if(!c.days.activeISO || !c.days.byDate.has(c.days.activeISO)) return;
 
     const iso = c.days.activeISO;
@@ -6534,6 +6663,7 @@ function renderHourPanel(c){
     const c = getActive();
     if(!c) return;
     ensureCourseSchedule(c);
+    c.days.autoHours = false;
     const iso = c.days.activeISO;
     if(!iso) return;
 
