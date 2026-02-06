@@ -46,11 +46,18 @@
     }
     .logo{
       width:44px; height:44px; border-radius:12px;
-      background:linear-gradient(180deg,var(--green-base),var(--green-dark));
+      background:#fff;
+      border:1px solid var(--border);
+      box-shadow:0 6px 14px rgba(2,6,23,.08);
       display:flex; align-items:center; justify-content:center;
-      color:#fff; font-weight:800;
-      box-shadow:0 6px 14px rgba(57,169,0,.25);
+      overflow:hidden;
       flex:0 0 auto;
+    }
+    .logo img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      display:block;
     }
     .titleblock{line-height:1.15}
     .titleblock .t1{font-size:13px; font-weight:700; color:var(--green-dark)}
@@ -810,13 +817,14 @@
     .mini-day.sel-left, .mini-day.sel-right, .mini-day.sel-mid{ border-radius:10px; }
 
     /* Footer fijo (diseño y desarrollo) */
-    body{ padding-bottom: 110px; }
+    body.has-dev-footer{ padding-bottom: 0; }
     .dev-footer-wrap{
-      position:fixed;
-      left:0; right:0; bottom:14px;
+      position:relative;
       display:flex;
       justify-content:center;
-      z-index:9999;
+      padding:0 16px 24px;
+      margin-top:12px;
+      z-index:auto;
     }
     .dev-footer{
       pointer-events:auto;
@@ -851,7 +859,7 @@
 
 <header>
   <div class="header-inner">
-    <div class="logo" aria-hidden="true">S</div>
+    <div class="logo" aria-hidden="true"><img src="https://oficinavirtualderadicacion.sena.edu.co/oficinavirtual/Resources/logoSenaNaranja.png" alt="" /></div>
     <div class="titleblock">
       <div class="t1">Servicio Nacional de Aprendizaje – SENA • Regional Tolima</div>
       <div class="t2">Generador de Fichas de Caracterización (Cursos Complementarios)</div>
@@ -1182,6 +1190,21 @@
     </div>
   </div>
 </main>
+
+
+<!-- Footer (DISEÑO Y DESARROLLO) -->
+<div class="dev-footer-wrap" id="devFooterWrap" aria-hidden="false" style="display:none;">
+  <div class="dev-footer" role="contentinfo">
+    <button class="df-btn close" type="button" id="btnDevFooterClose" aria-label="Cerrar">×</button>
+    <div class="df-text">
+      <div class="df-title">DISEÑO Y DESARROLLO</div>
+      <div class="df-sub">INSTRUCTOR DISEÑADOR</div>
+      <div class="df-name">Yeison Castellanos Gordillo</div>
+    </div>
+    <button class="df-btn gear" type="button" id="btnDevFooterGear" aria-label="Configuración">⚙</button>
+  </div>
+</div>
+
 
 <!-- Overlay: archivo catálogo -->
 <div class="overlay show" id="fileOverlay" role="dialog" aria-modal="true">
@@ -7005,23 +7028,55 @@ function renderHourPanel(c){
 
 })();
 
-  // Footer: cerrar (solo UI)
+  // Footer: ocultar mientras haya modales abiertos; visible cuando no haya overlays
   const _btnFooterClose = document.getElementById("btnDevFooterClose");
   const _footerWrap = document.getElementById("devFooterWrap");
-  if(_btnFooterClose && _footerWrap){
-    _btnFooterClose.addEventListener("click", ()=>{ _footerWrap.style.display = "none"; });
+
+  // Si el usuario lo cierra manualmente, no se vuelve a mostrar automáticamente
+  let _footerDismissed = false;
+
+  function _anyOverlayOpen(){
+    return !!document.querySelector(".overlay.show");
   }
+  function _setFooterVisible(v){
+    if(!_footerWrap) return;
+    _footerWrap.style.display = v ? "flex" : "none";
+    document.body.classList.toggle("has-dev-footer", v);
+  }
+  function _updateFooter(){
+    if(_footerDismissed){
+      _setFooterVisible(false);
+      return;
+    }
+    _setFooterVisible(!_anyOverlayOpen());
+  }
+
+  // Botón de cierre del footer
+  if(_btnFooterClose && _footerWrap){
+    _btnFooterClose.addEventListener("click", ()=>{
+      _footerDismissed = true;
+      _setFooterVisible(false);
+    });
+  }
+
+  // Si se reinicia, permitir que vuelva a mostrarse cuando corresponda
+  const _btnReiniciar = document.getElementById("btnReiniciar");
+  if(_btnReiniciar){
+    _btnReiniciar.addEventListener("click", ()=>{
+      _footerDismissed = false;
+      _updateFooter();
+    });
+  }
+
+  // Observar apertura/cierre de overlays para evitar que el footer se vea por encima del modal
+  const _overlays = Array.from(document.querySelectorAll(".overlay"));
+  if(window.MutationObserver && _overlays.length){
+    const _mo = new MutationObserver(()=> _updateFooter());
+    _overlays.forEach(ov => _mo.observe(ov, { attributes:true, attributeFilter:["class"] }));
+  }
+
+  _updateFooter();
 </script>
-
-
-  <div class="dev-footer-wrap" id="devFooterWrap" aria-hidden="false">
-    <div class="dev-footer" role="contentinfo">
-      <button class="df-btn close" type="button" id="btnDevFooterClose" aria-label="Cerrar">×</button>
-      <div class="df-text">
-        <div class="df-title">DISEÑO Y DESARROLLO</div>
-        <div class="df-sub">INSTRUCTOR DISEÑADOR</div>
-        <div class="df-name">Yeison Castellanos Gordillo</div>
-      </div>
       <button class="df-btn gear" type="button" id="btnDevFooterGear" aria-label="Configuración">⚙</button>
     </div>
   </div>
