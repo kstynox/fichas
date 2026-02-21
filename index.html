@@ -853,6 +853,8 @@
     .dev-footer .df-sub{ font-size:13px; color:#334155; font-weight:900; }
     .dev-footer .df-name{ font-size:15px; color:#0f172a; font-weight:900; }
     
+
+  .list-days .head{ align-items:flex-start; }
 </style>
 </head>
 <body>
@@ -1071,7 +1073,7 @@
                       <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1.5A2.5 2.5 0 0 1 22 6.5v13A2.5 2.5 0 0 1 19.5 22h-15A2.5 2.5 0 0 1 2 19.5v-13A2.5 2.5 0 0 1 4.5 4H6V3a1 1 0 0 1 1-1Zm12.5 6H4.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h15a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5ZM7 12h4v4H7v-4Z"></path>
                     </svg>
                   </button>
-                  <input id="fechaInicio" type="date" class="dateiso" tabindex="-1" aria-hidden="true" />
+                  <input id="fechaInicio" type="date" class="dateiso" tabindex="-1" />
                 </div>
               </div>
               <div class="field col3">
@@ -1083,7 +1085,7 @@
                       <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1.5A2.5 2.5 0 0 1 22 6.5v13A2.5 2.5 0 0 1 19.5 22h-15A2.5 2.5 0 0 1 2 19.5v-13A2.5 2.5 0 0 1 4.5 4H6V3a1 1 0 0 1 1-1Zm12.5 6H4.5a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h15a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5ZM13 12h4v4h-4v-4Z"></path>
                     </svg>
                   </button>
-                  <input id="fechaFin" type="date" class="dateiso" tabindex="-1" aria-hidden="true" />
+                  <input id="fechaFin" type="date" class="dateiso" tabindex="-1" />
                 </div>
               </div>
 
@@ -1152,10 +1154,9 @@
 
             <div class="list-days" id="daysListWrap" style="display:none;">
               <div class="head">
-                <div>Detalle de días programados</div>
-                <div class="inline">
+                <div>Detalle de días programados <span id="approxDateBadge" class="badge yellow" style="display:none; margin-left:10px; vertical-align:middle;"></span></div>
+<div class="inline">
                   <span id="hoursBadge" class="badge">0 / 0 horas</span>
-                  <span id="approxDateBadge" class="badge yellow" style="display:none;"></span>
                   <button class="btn primary compact" id="btnGuardar" type="button">Guardar ficha</button>
                   <a id="lnkReabrirCalendario" class="linklike">Editar días</a>
                 </div>
@@ -3867,7 +3868,7 @@ let badgeClass = "badge";
         rules.push(`Horas programadas (${totalHours}) superan la duración del programa (${progHours}). Debe ajustar.`);
               const sugISO = suggestEndDateForTargetHours(c, progHours);
         if(formEls.approxDateBadge){
-          if(sugISO && formEls.fechaFin.value !== sugISO){
+          if(sugISO){
             formEls.approxDateBadge.textContent = `Fecha fin aprox.: ${fmtDMYYYY(sugISO)}`;
             formEls.approxDateBadge.style.display = "inline-flex";
             formEls.approxDateBadge.dataset.iso = sugISO;
@@ -3880,7 +3881,21 @@ let badgeClass = "badge";
 }else if(totalHours < progHours){
         badgeClass = "badge warn";
         rules.push(`Horas programadas (${totalHours}) son menores a la duración del programa (${progHours}). Debe ajustar.`);
-      }else{
+      
+
+      const sugISO = suggestEndDateForTargetHours(c, progHours);
+      if(formEls.approxDateBadge){
+        if(sugISO){
+          formEls.approxDateBadge.textContent = `Fecha fin aprox.: ${fmtDMYYYY(sugISO)}`;
+          formEls.approxDateBadge.style.display = "inline-flex";
+          formEls.approxDateBadge.dataset.iso = sugISO;
+        }else{
+          formEls.approxDateBadge.style.display = "none";
+          formEls.approxDateBadge.dataset.iso = "";
+          formEls.approxDateBadge.textContent = "";
+        }
+      }
+}else{
         badgeClass = "badge";
         rules.push("Horas programadas coinciden con la duración del programa.");
       }
@@ -4365,11 +4380,18 @@ function triggerDownloadBlob(blob, filename, idx){
     STATE.cursos.forEach((c, idx)=>{
       rebuildDaysByDateFromState(c, { preserveExisting:true, fillIfEmpty:true });
       const pdf = buildPdfForCourse(c);
-      const datePart = todayYYYYMMDD();
-      const instructorPart = normalizeFileNamePart(STATE.instructor.nombre);
-      const courseShort = (c.program.name || "CURSO").substring(0,10);
-      const coursePart = normalizeFileNamePart(courseShort);
-      const fileName = `FC_${datePart}_${instructorPart}_${coursePart}.pdf`;      
+// Nombre de archivo requerido:
+// FC_Fechadeinicio_Codigo_NoDcumento_NombreInstructor
+// - Fecha inicio: YYYYMMDD (desde c.prog.start)
+// - NombreInstructor: solo 10 caracteres (normalizado)
+const datePart = (isISODateComplete(c.prog.start) ? String(c.prog.start).replace(/-/g,"") : todayYYYYMMDD());
+const codigoPart = normalizeFileNamePart(c.program.code);
+const documentoPart = normalizeFileNamePart(STATE.instructor.cedula);
+let instructorPart = normalizeFileNamePart(STATE.instructor.nombre).substring(0,10);
+instructorPart = instructorPart.replace(/_+$/g,""); // limpiar "_" al final si quedó cortado
+
+const fileName = `FC_${datePart}_${codigoPart}_${documentoPart}_${instructorPart}.pdf`;
+
       // Descargar directamente (sin pestañas)
       try{
         const blob = pdf.output("blob");
@@ -5915,18 +5937,85 @@ function triggerDownloadBlob(blob, filename, idx){
     return { selected, hoursPerDay: 0, totalHours: total };
   }
 
-  
 
-  function suggestEndDateForTargetHours(c, targetHours){
-    try{ ensureCourseSchedule(c); }catch(e){}
-    const selected = Array.from((c?.days?.byDate || new Map()).keys()).sort();
-    let acc = 0;
-    for(const iso of selected){
-      acc += (c.days.byDate.get(iso)?.size || 0);
-      if(acc >= targetHours) return iso;
-    }
-    return selected.length ? selected[selected.length-1] : null;
+function suggestEndDateForTargetHours(c, targetHours){
+  if(!c || !c.prog) return null;
+
+  // Fecha inicio: acepta ISO (YYYY-MM-DD) o DMY (DD/MM/YYYY)
+  const startISO = isISODateComplete(c.prog.start) ? String(c.prog.start)
+                  : (parseDMYToISO(String(c.prog.start || "")) || "");
+  if(!startISO) return null;
+
+  const startDate = new Date(startISO + "T00:00:00");
+
+  // Horario 1 (obligatorio)
+  const hs1 = String(c.prog.hStart || "");
+  const he1 = String(c.prog.hEnd   || "");
+  const m1s = minutesFromHHMM(hs1);
+  const m1e = minutesFromHHMM(he1);
+
+  // Días activos del horario 1 (getDay): 0=Dom,1=Lun,...6=Sáb
+  const wd1 = Array.isArray(c.prog.weekdays) ? c.prog.weekdays : [];
+  if(!wd1.length) return null;
+
+  // Horario 2 (opcional)
+  const hasExtra = !!(c.prog.extra && c.prog.extra.enabled);
+  const wd2 = (hasExtra && Array.isArray(c.prog.extra.weekdays)) ? c.prog.extra.weekdays : [];
+  const hs2 = hasExtra ? String(c.prog.extra.hStart || "") : "";
+  const he2 = hasExtra ? String(c.prog.extra.hEnd   || "") : "";
+  const m2s = hasExtra ? minutesFromHHMM(hs2) : null;
+  const m2e = hasExtra ? minutesFromHHMM(he2) : null;
+
+  function durHours(ms, me){
+    if(ms === null || me === null) return 0;
+    const d = (me - ms);
+    if(!Number.isFinite(d) || d <= 0) return 0;
+    return d / 60;
   }
+
+  // Horas por día, según el día de semana (sumando horario complementario si aplica)
+  function hoursForWeekday(weekDay){
+    let total = 0;
+    if(wd1.includes(weekDay)){
+      total += durHours(m1s, m1e);
+    }
+    if(hasExtra && wd2.includes(weekDay)){
+      total += durHours(m2s, m2e);
+    }
+    return total;
+  }
+
+  // Si en ningún día hay horas válidas, no se puede proyectar
+  let any = false;
+  for(const d of [1,2,3,4,5,6,0]){
+    if(hoursForWeekday(d) > 0){ any = true; break; }
+  }
+  if(!any) return null;
+
+  const target = Number(targetHours);
+  if(!Number.isFinite(target) || target <= 0) return null;
+
+  // Proyección: avanzar día a día, sumando horas según weekday hasta alcanzar target
+  let cursor = new Date(startDate);
+  let acc = 0;
+
+  let safety = 0;
+  while(acc < target && safety < 5000){
+    const weekDay = cursor.getDay();
+    const add = hoursForWeekday(weekDay);
+    if(add > 0){
+      acc += add;
+    }
+    if(acc < target){
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    safety++;
+  }
+  if(safety >= 5000) return null;
+
+  return cursor.toISOString().split("T")[0];
+}
+
 // ---------- Recalcular (cuando cambian fechas/horas o al cerrar calendario)
   function recalcSelectionAndHours(fromCalendar){
     const c = getActive();
@@ -6088,7 +6177,7 @@ let rules = [];
       rules.push(`<span class="badge danger">Excede horas del programa</span>`);
       const sugISO = suggestEndDateForTargetHours(c, progHours);
       if(formEls.approxDateBadge){
-        if(sugISO && formEls.fechaFin.value !== sugISO){
+        if(sugISO){
           formEls.approxDateBadge.textContent = `Fecha fin aprox.: ${fmtDMYYYY(sugISO)}`;
           formEls.approxDateBadge.style.display = "inline-flex";
           formEls.approxDateBadge.dataset.iso = sugISO;
@@ -6099,12 +6188,24 @@ let rules = [];
         }
       }
 
+    
+}else{
+  badgeCls = "badge warn";
+  rules.push(`<span class="badge warn">Faltan horas por programar</span>`);
+  const sugISO = suggestEndDateForTargetHours(c, progHours);
+  if(formEls.approxDateBadge){
+    if(sugISO){
+      formEls.approxDateBadge.textContent = `Fecha fin aprox.: ${fmtDMYYYY(sugISO)}`;
+      formEls.approxDateBadge.style.display = "inline-flex";
+      formEls.approxDateBadge.dataset.iso = sugISO;
     }else{
-      badgeCls = "badge warn";
-      rules.push(`<span class="badge warn">Faltan horas por programar</span>`);
+      formEls.approxDateBadge.style.display = "none";
+      formEls.approxDateBadge.dataset.iso = "";
+      formEls.approxDateBadge.textContent = "";
     }
-
-    formEls.hoursBadge.className = badgeCls;
+  }
+}
+formEls.hoursBadge.className = badgeCls;
     if(formEls.hoursRulesHint) formEls.hoursRulesHint.innerHTML = rules.join(" ");
     // lista
     selected.forEach(iso=>{
