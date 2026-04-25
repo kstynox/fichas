@@ -1275,6 +1275,7 @@
             <option value="">Seleccione…</option>
             <option value="EDNA PAOLA OSORIO MUÑOZ">EDNA PAOLA OSORIO MUÑOZ</option>
             <option value="JORGE ARMANDO VARELA RENDÓN">JORGE ARMANDO VARELA RENDÓN</option>
+            <option value="OMAR BARRAGAN CAICEDO">OMAR BARRAGAN CAICEDO</option>
             <option value="YOLANDA CÁRDENAS VILLAMARIN">YOLANDA CÁRDENAS VILLAMARIN</option>
           </select>
         </div>
@@ -1599,6 +1600,23 @@ function escapeHtml(str){
       .replace(/^_+|_+$/g, "")
       .replace(/_+/g, "_");
   }
+
+  function instructorNombreApellidoFilePart(nombre){
+    const limpio = (nombre ?? "").toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if(!limpio) return "INSTRUCTOR";
+
+    const partes = limpio.split(" ").filter(Boolean);
+    if(partes.length >= 2) return `${partes[0]}${partes[1]}`;
+    return partes[0];
+  }
+
 
   function parseISODate(iso){
     const v = (iso || "").trim();
@@ -4381,16 +4399,17 @@ function triggerDownloadBlob(blob, filename, idx){
       rebuildDaysByDateFromState(c, { preserveExisting:true, fillIfEmpty:true });
       const pdf = buildPdfForCourse(c);
 // Nombre de archivo requerido:
-// FC_Fechadeinicio_Codigo_NoDcumento_NombreInstructor
-// - Fecha inicio: YYYYMMDD (desde c.prog.start)
-// - NombreInstructor: solo 10 caracteres (normalizado)
-const datePart = (isISODateComplete(c.prog.start) ? String(c.prog.start).replace(/-/g,"") : todayYYYYMMDD());
+// FC_FECHA_CODIGO_HORAS-NOMBREAPELLIDO.PDF
+// Ejemplo: FC_20260425_12110065_48_YEISONCASTELLANOS.PDF
+// - FECHA: fecha de generación en formato YYYYMMDD
+// - HORAS: duración total del programa
+// - NOMBREAPELLIDO: primer nombre + primer apellido del instructor, sin espacios ni tildes
+const datePart = todayYYYYMMDD();
 const codigoPart = normalizeFileNamePart(c.program.code);
-const documentoPart = normalizeFileNamePart(STATE.instructor.cedula);
-let instructorPart = normalizeFileNamePart(STATE.instructor.nombre).substring(0,10);
-instructorPart = instructorPart.replace(/_+$/g,""); // limpiar "_" al final si quedó cortado
+const horasPart = normalizeFileNamePart(c.program.hours || c.computed?.totalHours || "");
+const instructorPart = instructorNombreApellidoFilePart(STATE.instructor.nombre);
 
-const fileName = `FC_${datePart}_${codigoPart}_${documentoPart}_${instructorPart}.pdf`;
+const fileName = `FC_${datePart}_${codigoPart}_${horasPart}-${instructorPart}.PDF`;
 
       // Descargar directamente (sin pestañas)
       try{
